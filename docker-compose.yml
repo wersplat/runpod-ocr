@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  ocr-api:
+    build:
+      context: ./ocr-api
+      dockerfile: Dockerfile
+    container_name: ocr-api
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    restart: unless-stopped
+    environment:
+      PADDLE_OCR_USE_GPU: "${PADDLE_OCR_USE_GPU}"
+      PADDLEOCR_LANG: "${PADDLEOCR_LANG}"
+      PADDLEOCR_MODEL_DIR: "/models"
+    ports:
+      - "${OCR_PORT}:8000"
+    volumes:
+      - ./models:/models
+      - ./data:/data
+      - ./logs/ocr:/app/logs
+
+  paddlelabel:
+    image: paddlecv/paddlelabel:latest
+    container_name: paddlelabel
+    restart: unless-stopped
+    environment:
+      # UI listens on 0.0.0.0:8080 inside container
+      # It writes projects/datasets into /data
+      PADDLELABEL_DATA_ROOT: "/data"
+    ports:
+      - "${LABEL_PORT}:8080"
+    volumes:
+      - ./data:/data
+      - ./paddlelabel:/var/lib/paddlelabel
+      - ./logs/paddlelabel:/logs
+
+networks:
+  default:
+    name: paddle-net
