@@ -1,16 +1,40 @@
+version: "3.9"
+
 services:
+  labelstudio:
+    image: heartexlabs/label-studio:latest
+    container_name: labelstudio
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      LABEL_STUDIO_HOST: "0.0.0.0"
+      LABEL_STUDIO_DEFAULT_USERNAME: "${LABEL_STUDIO_DEFAULT_USERNAME}"
+      LABEL_STUDIO_DEFAULT_PASSWORD: "${LABEL_STUDIO_DEFAULT_PASSWORD}"
+      LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED: "true"
+      LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT: "/data"
+      DJANGO_DB: "sqlite"
+    ports:
+      - "${LABEL_PORT}:8080"
+    volumes:
+      - ./data:/data
+      - ./logs/labelstudio:/label-studio/log
+    command: >
+      /bin/bash -lc "
+      label-studio start --host 0.0.0.0 --port 8080
+      "
+
   ocr-api:
     build:
       context: ./ocr-api
       dockerfile: Dockerfile
     container_name: ocr-api
+    restart: unless-stopped
     runtime: nvidia
     deploy:
       resources:
         reservations:
           devices:
             - capabilities: ["gpu"]
-    restart: unless-stopped
     environment:
       PADDLE_OCR_USE_GPU: "${PADDLE_OCR_USE_GPU}"
       PADDLEOCR_LANG: "${PADDLEOCR_LANG}"
@@ -22,21 +46,6 @@ services:
       - ./data:/data
       - ./logs/ocr:/app/logs
 
-  paddlelabel:
-    image: linhandev/paddlelabel:latest
-    container_name: paddlelabel
-    restart: unless-stopped
-    environment:
-      # UI listens on 0.0.0.0:8080 inside container
-      # It writes projects/datasets into /data
-      PADDLELABEL_DATA_ROOT: "/data"
-    ports:
-      - "${LABEL_PORT}:8080"
-    volumes:
-      - ./data:/data
-      - ./paddlelabel:/var/lib/paddlelabel
-      - ./logs/paddlelabel:/logs
-
 networks:
   default:
-    name: paddle-net
+    name: label-ocr-net
