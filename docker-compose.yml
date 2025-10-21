@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   ocr-api:
     build:
@@ -25,7 +23,7 @@ services:
       - ./logs/ocr:/app/logs
 
   paddlelabel:
-    image: paddlecv/paddlelabel:latest
+    image: linhandev/paddlelabel:latest
     container_name: paddlelabel
     restart: unless-stopped
     environment:
