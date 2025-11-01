@@ -49,8 +49,4 @@ services:
 
 networks:
   default:
-<<<<<<< HEAD
     name: label-ocr-net
-=======
-    name: ocr-net
->>>>>>> 12778a8 (Refactor OCR API: Updated to use DeepSeek-OCR model, added new endpoints for OCR and markdown conversion, and improved Dockerfile for Python 3.12 support.)

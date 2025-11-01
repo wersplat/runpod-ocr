@@ -19,22 +19,26 @@ A FastAPI-based OCR service powered by [DeepSeek-OCR](https://huggingface.co/dee
 ## Quick Start
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd runpod-ocr
 ```
 
 2. Create a `.env` file (see `.env.example`):
+
 ```bash
 cp .env.example .env
 ```
 
 3. Start the service:
+
 ```bash
 docker compose up -d
 ```
 
 4. Test the API:
+
 ```bash
 curl -X POST "http://localhost:8000/ocr/free" \
   -F "file=@your_image.jpg" \
@@ -60,16 +64,19 @@ POST /ocr/free
 ```
 
 **Parameters:**
+
 - `file` (multipart/form-data): Image file to process
 - `mode` (query, optional): Size mode preset (tiny, small, base, large, gundam). Default: `gundam`
 
 **Example:**
+
 ```bash
 curl -X POST "http://localhost:8000/ocr/free?mode=gundam" \
   -F "file=@document.jpg"
 ```
 
 **Response:**
+
 ```json
 {
   "text": "Extracted text content...",
@@ -86,16 +93,19 @@ POST /ocr/markdown
 ```
 
 **Parameters:**
+
 - `file` (multipart/form-data): Image file to process
 - `mode` (query, optional): Size mode preset. Default: `gundam`
 
 **Example:**
+
 ```bash
 curl -X POST "http://localhost:8000/ocr/markdown?mode=base" \
   -F "file=@document.jpg"
 ```
 
 **Response:**
+
 ```json
 {
   "markdown": "# Document Title\n\nParagraph content...",
@@ -112,17 +122,20 @@ POST /ocr
 ```
 
 **Parameters:**
+
 - `file` (multipart/form-data): Image file to process
 - `mode` (query, optional): Size mode preset. Default: `gundam`
 - `prompt` (query, optional): Custom prompt. Default: `"<image>\nFree OCR. "`
 
 **Example:**
+
 ```bash
 curl -X POST "http://localhost:8000/ocr?mode=large&prompt=<image>%0AExtract%20all%20text" \
   -F "file=@document.jpg"
 ```
 
 **Response:**
+
 ```json
 {
   "text": "Extracted text...",
@@ -190,6 +203,7 @@ This project was migrated from PaddleOCR to DeepSeek-OCR. Key changes:
 ### API Changes
 
 **Before (PaddleOCR):**
+
 ```python
 POST /ocr
 Response: {
@@ -200,6 +214,7 @@ Response: {
 ```
 
 **After (DeepSeek-OCR):**
+
 ```python
 POST /ocr/free
 Response: {
@@ -265,4 +280,3 @@ docker compose up ocr-api
 ## License
 
 This project uses DeepSeek-OCR, which is licensed under MIT License. See the model card for details.
-
