@@ -1,0 +1,51 @@
+# RunPod Serverless Dockerfile
+# This Dockerfile is optimized for RunPod serverless endpoints
+
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# Install Python 3.11 (more widely supported by PyTorch) and system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 python3.11-dev python3.11-distutils \
+    curl git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default and install pip
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
+
+# Install RunPod serverless SDK (required for serverless endpoints)
+RUN python3 -m pip install runpod requests
+
+# Install PyTorch with CUDA support
+# Try CUDA 12.1 index first for newer PyTorch versions
+RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Install transformers and tokenizers
+RUN python3 -m pip install transformers==4.46.3 tokenizers==0.20.3
+
+# Install flash-attention (optional - falls back to standard attention if not available)
+# Try installing compatible version, but don't fail if it doesn't work
+RUN python3 -m pip install psutil packaging ninja wheel && \
+    (python3 -m pip install flash-attn==2.5.8 --no-build-isolation || true)
+
+# Install additional dependencies
+RUN python3 -m pip install einops addict easydict
+
+# Install image processing libraries
+RUN python3 -m pip install opencv-python-headless numpy pillow
+
+WORKDIR /app
+COPY handler.py /app/handler.py
+
+EXPOSE 8000
+
+# RunPod serverless expects handler.py to be the entrypoint
+CMD ["python", "handler.py"]
+

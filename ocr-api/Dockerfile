@@ -35,8 +35,10 @@ RUN python3 -m pip install einops addict easydict
 # Install image processing libraries
 RUN python3 -m pip install opencv-python-headless numpy pillow
 
->>>>>>> 12778a8 (Refactor OCR API: Updated to use DeepSeek-OCR model, added new endpoints for OCR and markdown conversion, and improved Dockerfile for Python 3.12 support.)
 WORKDIR /app
 COPY app.py /app/app.py
 EXPOSE 8000
+
+# Default: FastAPI for local development
+# For RunPod serverless, use Dockerfile.runpod instead
 CMD ["uvicorn", "app:app", "--host=0.0.0.0", "--port=8000"]

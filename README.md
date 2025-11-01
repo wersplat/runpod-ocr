@@ -240,15 +240,19 @@ Response: {
 ```
 runpod-ocr/
 ├── ocr-api/
-│   ├── app.py          # FastAPI application
-│   └── Dockerfile      # Container definition
-├── docker-compose.yml  # Service orchestration
+│   ├── app.py              # FastAPI application (local)
+│   ├── handler.py          # RunPod serverless handler
+│   ├── Dockerfile           # Container for local FastAPI
+│   ├── Dockerfile.runpod    # Container for RunPod serverless
+│   └── example_runpod_client.py  # Example RunPod client
+├── docker-compose.yml      # Service orchestration
+├── RUNPOD_DEPLOYMENT.md    # RunPod deployment guide
 ├── scripts/
-│   ├── README-train.md # Training documentation
-│   └── train_rec.sh    # Legacy training script (deprecated)
-├── models/             # Model storage (optional custom models)
-├── data/               # Data directory
-└── logs/               # Application logs
+│   ├── README-train.md     # Training documentation
+│   └── train_rec.sh        # Legacy training script (deprecated)
+├── models/                 # Model storage (optional custom models)
+├── data/                   # Data directory
+└── logs/                   # Application logs
 ```
 
 ## Development
@@ -271,11 +275,57 @@ docker compose logs -f ocr-api
 docker compose up ocr-api
 ```
 
+## RunPod Serverless Deployment
+
+Deploy this API as a serverless endpoint on RunPod for automatic scaling and pay-per-use pricing.
+
+### Quick Start
+
+1. **Build the RunPod image:**
+   ```bash
+   cd ocr-api
+   docker build -f Dockerfile.runpod -t yourusername/deepseek-ocr:latest .
+   docker push yourusername/deepseek-ocr:latest
+   ```
+
+2. **Create endpoint in RunPod:**
+   - Go to RunPod Dashboard → Serverless → Create Endpoint
+   - Container: `yourusername/deepseek-ocr:latest`
+   - GPU: RTX 4090 or A100 (recommended)
+   - Container disk: 20GB+
+   - Enable FlashBoot for faster cold starts
+
+3. **Use the endpoint:**
+   ```python
+   import runpod
+   import base64
+   
+   runpod.api_key = "your-api-key"
+   
+   with open("image.jpg", "rb") as f:
+       image_b64 = base64.b64encode(f.read()).decode()
+   
+   job = runpod.serverless.run(
+       endpoint_id="your-endpoint-id",
+       input={
+           "image": image_b64,
+           "mode": "gundam",
+           "format": "text"  # or "markdown"
+       }
+   )
+   
+   result = job.output()
+   print(result["text"])
+   ```
+
+See [RUNPOD_DEPLOYMENT.md](RUNPOD_DEPLOYMENT.md) for detailed deployment instructions and examples.
+
 ## References
 
 - [DeepSeek-OCR on Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-OCR)
 - [DeepSeek-OCR GitHub](https://github.com/deepseek-ai/DeepSeek-OCR)
 - [Research Paper](https://arxiv.org/abs/2510.18234)
+- [RunPod Serverless Documentation](https://docs.runpod.io/serverless)
 
 ## License
 
