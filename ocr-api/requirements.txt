@@ -16,7 +16,7 @@ torchvision>=0.15.0
 torchaudio>=2.0.0
 
 # Transformers and tokenizers
-transformers==4.46.3
+transformers==4.53.0
 tokenizers==0.20.3
 
 # Flash attention (optional - install separately if needed)
