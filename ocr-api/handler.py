@@ -77,65 +77,193 @@ def get_model():
 
 def process_image(image_data, mode="gundam", prompt=None):
     """Process image with DeepSeek-OCR"""
-    model, tokenizer = get_model()
+    import sys
     
-    # Get size configuration
-    config = SIZE_MODES.get(mode, SIZE_MODES["gundam"])
+    print(f"[DeepSeek-OCR] process_image() called with mode={mode}, prompt={'set' if prompt else 'None'}", flush=True)
+    sys.stdout.flush()
     
-    # Determine prompt
-    if prompt:
-        ocr_prompt = prompt
-    else:
-        # Default prompt based on mode or use Free OCR
-        ocr_prompt = "<image>\nFree OCR. "
-    
-    # Handle different input formats
-    if isinstance(image_data, str):
-        # Check if it's a URL
-        if image_data.startswith(("http://", "https://")):
-            import requests
-            response = requests.get(image_data)
-            response.raise_for_status()
-            image_bytes = response.content
-        # Check if it's a data URL (data:image/...)
-        elif image_data.startswith("data:image"):
-            # Extract base64 part after comma
-            image_bytes = base64.b64decode(image_data.split(",", 1)[1])
+    try:
+        print(f"[DeepSeek-OCR] Getting model...", flush=True)
+        sys.stdout.flush()
+        model, tokenizer = get_model()
+        print(f"[DeepSeek-OCR] Model retrieved successfully", flush=True)
+        sys.stdout.flush()
+        
+        # Get size configuration
+        config = SIZE_MODES.get(mode, SIZE_MODES["gundam"])
+        print(f"[DeepSeek-OCR] Using config: base_size={config['base_size']}, image_size={config['image_size']}, crop_mode={config['crop_mode']}", flush=True)
+        
+        # Determine prompt
+        if prompt:
+            ocr_prompt = prompt
         else:
-            # Assume it's base64 encoded
-            image_bytes = base64.b64decode(image_data)
-    else:
-        # Assume it's already bytes
-        image_bytes = image_data
-    
-    # Save image to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+            # Default prompt based on mode or use Free OCR
+            ocr_prompt = "<image>\nFree OCR. "
+        print(f"[DeepSeek-OCR] Using OCR prompt: {ocr_prompt[:50]}...", flush=True)
+        sys.stdout.flush()
+        
+        # Validate image_data
+        if image_data is None:
+            raise ValueError("image_data cannot be None")
+        
+        print(f"[DeepSeek-OCR] Processing image_data, type: {type(image_data)}", flush=True)
+        sys.stdout.flush()
+        
+        # Handle different input formats
+        image_bytes = None
+        if isinstance(image_data, str):
+            print(f"[DeepSeek-OCR] Image data is string, length: {len(image_data)}", flush=True)
+            # Check if it's a URL
+            if image_data.startswith(("http://", "https://")):
+                print(f"[DeepSeek-OCR] Detected URL, fetching...", flush=True)
+                import requests
+                response = requests.get(image_data)
+                response.raise_for_status()
+                image_bytes = response.content
+                print(f"[DeepSeek-OCR] Fetched {len(image_bytes)} bytes from URL", flush=True)
+            # Check if it's a data URL (data:image/...)
+            elif image_data.startswith("data:image"):
+                print(f"[DeepSeek-OCR] Detected data URL, decoding...", flush=True)
+                # Extract base64 part after comma
+                try:
+                    image_bytes = base64.b64decode(image_data.split(",", 1)[1])
+                    print(f"[DeepSeek-OCR] Decoded {len(image_bytes)} bytes from data URL", flush=True)
+                except (IndexError, ValueError) as e:
+                    print(f"[DeepSeek-OCR] ERROR decoding data URL: {e}", flush=True)
+                    raise ValueError(f"Invalid data URL format: {e}")
+            else:
+                # Assume it's base64 encoded
+                print(f"[DeepSeek-OCR] Assuming base64 string, decoding...", flush=True)
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    print(f"[DeepSeek-OCR] Decoded {len(image_bytes)} bytes from base64", flush=True)
+                except Exception as e:
+                    print(f"[DeepSeek-OCR] ERROR decoding base64: {e}", flush=True)
+                    raise ValueError(f"Failed to decode base64 image data: {e}")
+        elif isinstance(image_data, bytes):
+            print(f"[DeepSeek-OCR] Image data is bytes, length: {len(image_data)}", flush=True)
+            image_bytes = image_data
+        else:
+            raise ValueError(f"Unsupported image_data type: {type(image_data)}. Expected str (base64/URL) or bytes.")
+        
+        sys.stdout.flush()
+        
+        # Validate image_bytes
+        if not image_bytes:
+            raise ValueError("image_bytes is empty after processing")
+        
+        if len(image_bytes) == 0:
+            raise ValueError("image_bytes has zero length")
+        
+        print(f"[DeepSeek-OCR] Image bytes validated: {len(image_bytes)} bytes", flush=True)
+        sys.stdout.flush()
+        
+        # Save image to temporary file
+        tmp_file_path = None
+        output_dir = None
         try:
-            tmp_file.write(image_bytes)
-            tmp_file_path = tmp_file.name
+            print(f"[DeepSeek-OCR] Creating temporary file...", flush=True)
+            sys.stdout.flush()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                tmp_file.write(image_bytes)
+                tmp_file_path = tmp_file.name
+                print(f"[DeepSeek-OCR] Temporary file created: {tmp_file_path}", flush=True)
+            
+            # Validate temp file path
+            if not tmp_file_path:
+                raise ValueError("Failed to create temporary file: tmp_file_path is None")
+            
+            if not os.path.exists(tmp_file_path):
+                raise ValueError(f"Temporary file was not created: {tmp_file_path}")
+            
+            # Verify file has content
+            file_size = os.path.getsize(tmp_file_path)
+            if file_size == 0:
+                raise ValueError(f"Temporary file is empty: {tmp_file_path}")
+            
+            print(f"[DeepSeek-OCR] Processing image: {tmp_file_path} ({file_size} bytes)", flush=True)
+            sys.stdout.flush()
+            
+            # Create temporary output directory (model requires a valid path, not None)
+            # The model's infer() method calls os.makedirs(output_path) even when save_results=False
+            output_dir = tempfile.mkdtemp(prefix="deepseek_ocr_output_")
+            print(f"[DeepSeek-OCR] Created output directory: {output_dir}", flush=True)
+            sys.stdout.flush()
             
             # Run inference
+            print(f"[DeepSeek-OCR] Calling model.infer()...", flush=True)
+            sys.stdout.flush()
             result = model.infer(
                 tokenizer,
                 prompt=ocr_prompt,
                 image_file=tmp_file_path,
-                output_path=None,
+                output_path=output_dir,  # Use temp directory instead of None
                 base_size=config["base_size"],
                 image_size=config["image_size"],
                 crop_mode=config["crop_mode"],
-                save_results=False,
+                save_results=True,  # Set to True to get results returned
                 test_compress=False
             )
+            print(f"[DeepSeek-OCR] model.infer() completed, result type: {type(result)}", flush=True)
+            print(f"[DeepSeek-OCR] model.infer() result value: {str(result)[:200] if result else 'None'}", flush=True)
+            sys.stdout.flush()
+            
+            # Check if result is None - model might have written to file instead
+            if result is None:
+                print(f"[DeepSeek-OCR] Result is None, checking output directory for saved files...", flush=True)
+                # Check if there are any text files in the output directory
+                output_files = []
+                if os.path.exists(output_dir):
+                    output_files = [f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))]
+                    print(f"[DeepSeek-OCR] Found {len(output_files)} files in output directory: {output_files}", flush=True)
+                    
+                    # Try to read text from any .txt files
+                    for filename in output_files:
+                        if filename.endswith('.txt'):
+                            filepath = os.path.join(output_dir, filename)
+                            try:
+                                with open(filepath, 'r', encoding='utf-8') as f:
+                                    text = f.read()
+                                    print(f"[DeepSeek-OCR] Read {len(text)} characters from {filename}", flush=True)
+                                    sys.stdout.flush()
+                                    return text
+                            except Exception as e:
+                                print(f"[DeepSeek-OCR] Failed to read {filename}: {e}", flush=True)
+                
+                # If no files found, return empty string or raise error
+                raise ValueError("Model returned None and no output files were found in output directory")
             
             # Extract text from result
             text = result if isinstance(result, str) else str(result)
+            print(f"[DeepSeek-OCR] Extracted text length: {len(text)}", flush=True)
+            sys.stdout.flush()
             
             return text
         
         finally:
             # Clean up temp file
-            if os.path.exists(tmp_file_path):
-                os.unlink(tmp_file_path)
+            if tmp_file_path and os.path.exists(tmp_file_path):
+                try:
+                    os.unlink(tmp_file_path)
+                    print(f"[DeepSeek-OCR] Cleaned up temp file: {tmp_file_path}", flush=True)
+                except Exception as e:
+                    print(f"[DeepSeek-OCR] Warning: Failed to delete temp file {tmp_file_path}: {e}", flush=True)
+            
+            # Clean up output directory
+            if output_dir and os.path.exists(output_dir):
+                try:
+                    import shutil
+                    shutil.rmtree(output_dir)
+                    print(f"[DeepSeek-OCR] Cleaned up output directory: {output_dir}", flush=True)
+                except Exception as e:
+                    print(f"[DeepSeek-OCR] Warning: Failed to delete output directory {output_dir}: {e}", flush=True)
+    
+    except Exception as e:
+        print(f"[DeepSeek-OCR] ERROR in process_image(): {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
 
 def handler(event):
     """
@@ -174,18 +302,27 @@ def handler(event):
         
         # Get image data
         image_data = input_data.get("image")
+        print(f"[DeepSeek-OCR] Image data type: {type(image_data)}", flush=True)
+        print(f"[DeepSeek-OCR] Image data length: {len(image_data) if image_data else 'None'}", flush=True)
+        print(f"[DeepSeek-OCR] Image data preview (first 100 chars): {str(image_data)[:100] if image_data else 'None'}", flush=True)
+        sys.stdout.flush()
+        
         if not image_data:
+            error_msg = "Missing 'image' field in input. Provide base64 encoded image, data URL, or image URL."
+            print(f"[DeepSeek-OCR] ERROR: {error_msg}", flush=True)
             return {
-                "error": "Missing 'image' field in input. Provide base64 encoded image, data URL, or image URL."
+                "error": error_msg
             }
         
         # Get mode (default: gundam)
         mode = input_data.get("mode", "gundam")
         if mode not in SIZE_MODES:
             mode = "gundam"
+        print(f"[DeepSeek-OCR] Using mode: {mode}", flush=True)
         
         # Get format (text or markdown)
         format_type = input_data.get("format", "text")
+        print(f"[DeepSeek-OCR] Format type: {format_type}", flush=True)
         
         # Determine prompt based on format
         prompt = input_data.get("prompt")
@@ -194,9 +331,15 @@ def handler(event):
                 prompt = "<image>\n<|grounding|>Convert the document to markdown. "
             else:
                 prompt = "<image>\nFree OCR. "
+        print(f"[DeepSeek-OCR] Using prompt: {prompt[:50]}...", flush=True)
+        sys.stdout.flush()
         
         # Process image
+        print(f"[DeepSeek-OCR] Calling process_image()...", flush=True)
+        sys.stdout.flush()
         result_text = process_image(image_data, mode=mode, prompt=prompt)
+        print(f"[DeepSeek-OCR] process_image() completed, result length: {len(result_text) if result_text else 'None'}", flush=True)
+        sys.stdout.flush()
         
         # Return result
         if format_type == "markdown":
@@ -211,9 +354,22 @@ def handler(event):
             }
     
     except Exception as e:
+        import traceback
+        error_msg = str(e)
+        error_type = type(e).__name__
+        error_traceback = traceback.format_exc()
+        
+        print(f"[DeepSeek-OCR] ========== HANDLER ERROR ==========", flush=True)
+        print(f"[DeepSeek-OCR] Error type: {error_type}", flush=True)
+        print(f"[DeepSeek-OCR] Error message: {error_msg}", flush=True)
+        print(f"[DeepSeek-OCR] Traceback:", flush=True)
+        print(error_traceback, flush=True)
+        print(f"[DeepSeek-OCR] ====================================", flush=True)
+        sys.stdout.flush()
+        
         return {
-            "error": str(e),
-            "type": type(e).__name__
+            "error": error_msg,
+            "type": error_type
         }
 
 # Start RunPod serverless

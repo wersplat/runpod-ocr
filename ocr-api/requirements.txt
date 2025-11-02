@@ -1,0 +1,40 @@
+# RunPod Serverless Dependencies
+# These packages are installed in the Docker container
+# Install locally for development: pip install -r requirements.txt
+
+# RunPod SDK (required for serverless endpoints)
+runpod>=1.0.0
+
+# HTTP requests
+requests>=2.31.0
+
+# PyTorch with CUDA support
+# Note: Install from PyTorch CUDA index for GPU support:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Transformers and tokenizers
+transformers==4.46.3
+tokenizers==0.20.3
+
+# Flash attention (optional - install separately if needed)
+# flash-attn==2.5.8  # Uncomment if you need flash attention
+
+# Build dependencies for flash-attn (if installing)
+psutil>=5.9.0
+packaging>=23.0
+ninja>=1.11.0
+wheel>=0.40.0
+
+# Additional model dependencies
+einops>=0.7.0
+addict>=2.4.0
+easydict>=1.10
+
+# Image processing
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+pillow>=10.0.0
+

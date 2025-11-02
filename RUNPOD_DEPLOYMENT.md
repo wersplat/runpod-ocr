@@ -19,6 +19,7 @@ RunPod serverless endpoints allow you to deploy containerized applications that 
 1. **Build Docker Image**
 
    Build the image using the RunPod-specific Dockerfile:
+
    ```bash
    cd ocr-api
    docker build -f Dockerfile.runpod -t deepseek-ocr:latest .
@@ -27,6 +28,7 @@ RunPod serverless endpoints allow you to deploy containerized applications that 
 2. **Push to Container Registry**
 
    Tag and push to Docker Hub, GitHub Container Registry, or RunPod's registry:
+
    ```bash
    # Docker Hub example
    docker tag deepseek-ocr:latest yourusername/deepseek-ocr:latest
@@ -152,11 +154,13 @@ The handler expects the following input format:
 ```
 
 **Note:** All fields except `image` are optional:
+
 - `mode`: "tiny", "small", "base", "large", or "gundam" (default: "gundam")
 - `prompt`: Custom OCR prompt (optional)
 - `format`: "text" or "markdown" (default: "text")
 
 **Fields:**
+
 - `image` (required): Base64-encoded image string or HTTP/HTTPS URL
 - `mode` (optional): Size mode preset (tiny, small, base, large, gundam). Default: `gundam`
 - `prompt` (optional): Custom prompt for OCR. Default: `"<image>\nFree OCR. "` or markdown prompt
@@ -165,6 +169,7 @@ The handler expects the following input format:
 ## Output Format
 
 **Text Format:**
+
 ```json
 {
   "text": "Extracted text content...",
@@ -173,6 +178,7 @@ The handler expects the following input format:
 ```
 
 **Markdown Format:**
+
 ```json
 {
   "markdown": "# Document Title\n\nContent...",
@@ -181,6 +187,7 @@ The handler expects the following input format:
 ```
 
 **Error Format:**
+
 ```json
 {
   "error": "Error message here",
@@ -208,6 +215,7 @@ The handler expects the following input format:
 ### Model Loading Issues
 
 If you encounter OOM errors:
+
 - Reduce `max_workers` to 1
 - Use a larger GPU (A100 40GB or higher)
 - Try smaller size modes (tiny/small)
@@ -226,6 +234,7 @@ If you encounter OOM errors:
 ## Monitoring
 
 Monitor your endpoint in RunPod dashboard:
+
 - Request count
 - Average response time
 - Error rate
@@ -235,6 +244,7 @@ Monitor your endpoint in RunPod dashboard:
 ## Pricing
 
 RunPod charges based on:
+
 - GPU time used
 - Cold start time
 - Number of workers
@@ -283,4 +293,3 @@ else:
 - [RunPod Serverless Documentation](https://docs.runpod.io/serverless)
 - [RunPod Python SDK](https://github.com/runpod/runpod-python)
 - [DeepSeek-OCR Model Card](https://huggingface.co/deepseek-ai/DeepSeek-OCR)
-
