@@ -31,33 +31,47 @@ def get_model():
     global _model, _tokenizer
     if _model is None:
         import time
+        import sys
         t0 = time.time()
-        print(f"[DeepSeek-OCR] Loading model {MODEL_NAME}...")
+        print(f"[DeepSeek-OCR] Starting model load: {MODEL_NAME}", flush=True)
+        sys.stdout.flush()
         
-        _tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_NAME, 
-            trust_remote_code=True
-        )
-        
-        # Try flash_attention_2 first, fallback to standard attention
         try:
-            _model = AutoModel.from_pretrained(
-                MODEL_NAME,
-                _attn_implementation='flash_attention_2',
-                trust_remote_code=True,
-                use_safetensors=True
+            print("[DeepSeek-OCR] Loading tokenizer...", flush=True)
+            _tokenizer = AutoTokenizer.from_pretrained(
+                MODEL_NAME, 
+                trust_remote_code=True
             )
-            print("[DeepSeek-OCR] Using flash_attention_2")
+            print("[DeepSeek-OCR] Tokenizer loaded successfully", flush=True)
+            
+            # Try flash_attention_2 first, fallback to standard attention
+            try:
+                print("[DeepSeek-OCR] Attempting to load model with flash_attention_2...", flush=True)
+                _model = AutoModel.from_pretrained(
+                    MODEL_NAME,
+                    _attn_implementation='flash_attention_2',
+                    trust_remote_code=True,
+                    use_safetensors=True
+                )
+                print("[DeepSeek-OCR] Using flash_attention_2", flush=True)
+            except Exception as e:
+                print(f"[DeepSeek-OCR] flash_attention_2 not available ({e}), using standard attention", flush=True)
+                _model = AutoModel.from_pretrained(
+                    MODEL_NAME,
+                    trust_remote_code=True,
+                    use_safetensors=True
+                )
+            
+            print("[DeepSeek-OCR] Moving model to GPU...", flush=True)
+            _model = _model.eval().cuda().to(torch.bfloat16)
+            print(f"[DeepSeek-OCR] Model ready in {time.time()-t0:.2f}s (GPU=True)", flush=True)
+            sys.stdout.flush()
         except Exception as e:
-            print(f"[DeepSeek-OCR] flash_attention_2 not available ({e}), using standard attention")
-            _model = AutoModel.from_pretrained(
-                MODEL_NAME,
-                trust_remote_code=True,
-                use_safetensors=True
-            )
-        
-        _model = _model.eval().cuda().to(torch.bfloat16)
-        print(f"[DeepSeek-OCR] Ready in {time.time()-t0:.2f}s (GPU=True)")
+            print(f"[DeepSeek-OCR] ERROR loading model: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
     
     return _model, _tokenizer
 
@@ -137,8 +151,26 @@ def handler(event):
         }
     }
     """
+    import sys
+    import json
+    
+    print(f"[DeepSeek-OCR] ========== HANDLER CALLED ==========", flush=True)
+    print(f"[DeepSeek-OCR] Handler called with event type: {type(event)}", flush=True)
+    print(f"[DeepSeek-OCR] Event keys: {list(event.keys()) if isinstance(event, dict) else 'not a dict'}", flush=True)
+    print(f"[DeepSeek-OCR] Full event (first 500 chars): {str(event)[:500]}", flush=True)
+    sys.stdout.flush()
+    
     try:
-        input_data = event.get("input", {})
+        # Handle different event formats RunPod might send
+        if isinstance(event, dict):
+            input_data = event.get("input", event)  # Try "input" key, fallback to event itself
+        else:
+            print(f"[DeepSeek-OCR] Event is not a dict, type: {type(event)}", flush=True)
+            input_data = {}
+        
+        print(f"[DeepSeek-OCR] Input data type: {type(input_data)}", flush=True)
+        print(f"[DeepSeek-OCR] Input data keys: {list(input_data.keys()) if isinstance(input_data, dict) else 'not a dict'}", flush=True)
+        sys.stdout.flush()
         
         # Get image data
         image_data = input_data.get("image")
@@ -186,5 +218,59 @@ def handler(event):
 
 # Start RunPod serverless
 if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+    import sys
+    import os
+    
+    print("[DeepSeek-OCR] ========================================", flush=True)
+    print("[DeepSeek-OCR] Starting RunPod serverless handler...", flush=True)
+    print(f"[DeepSeek-OCR] Python version: {sys.version}", flush=True)
+    print(f"[DeepSeek-OCR] Working directory: {os.getcwd()}", flush=True)
+    print(f"[DeepSeek-OCR] Files in /app: {os.listdir('/app')}", flush=True)
+    print(f"[DeepSeek-OCR] Handler function: {handler}", flush=True)
+    print(f"[DeepSeek-OCR] Handler type: {type(handler)}", flush=True)
+    print(f"[DeepSeek-OCR] CUDA available: {torch.cuda.is_available()}", flush=True)
+    if torch.cuda.is_available():
+        print(f"[DeepSeek-OCR] CUDA device: {torch.cuda.get_device_name(0)}", flush=True)
+        print(f"[DeepSeek-OCR] CUDA memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB", flush=True)
+    
+    # Test handler registration by calling it with a test event
+    print("[DeepSeek-OCR] Testing handler registration...", flush=True)
+    try:
+        test_event = {"input": {"image": "test", "mode": "gundam", "format": "text"}}
+        # This will fail because image is invalid, but we'll see if handler is callable
+        test_result = handler(test_event)
+        print(f"[DeepSeek-OCR] Handler test call returned: {type(test_result)}", flush=True)
+    except Exception as test_err:
+        print(f"[DeepSeek-OCR] Handler test call failed (expected): {test_err}", flush=True)
+    
+    print("[DeepSeek-OCR] ========================================", flush=True)
+    print("[DeepSeek-OCR] Registering handler with RunPod...", flush=True)
+    sys.stdout.flush()
+    
+    try:
+        # Check RunPod SDK version
+        print(f"[DeepSeek-OCR] RunPod SDK version: {runpod.__version__ if hasattr(runpod, '__version__') else 'unknown'}", flush=True)
+        print(f"[DeepSeek-OCR] RunPod module path: {runpod.__file__}", flush=True)
+        print(f"[DeepSeek-OCR] RunPod serverless module: {runpod.serverless}", flush=True)
+        sys.stdout.flush()
+        
+        print("[DeepSeek-OCR] Calling runpod.serverless.start()...", flush=True)
+        sys.stdout.flush()
+        
+        # Register handler - RunPod expects this exact format
+        # The handler function should be passed directly, not as a string
+        runpod.serverless.start({"handler": handler})
+        
+        print("[DeepSeek-OCR] runpod.serverless.start() returned (unexpected - should block forever)", flush=True)
+        sys.stdout.flush()
+    except KeyboardInterrupt:
+        print("[DeepSeek-OCR] Interrupted by user", flush=True)
+        sys.stdout.flush()
+        raise
+    except Exception as e:
+        print(f"[DeepSeek-OCR] FATAL ERROR starting serverless: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
 

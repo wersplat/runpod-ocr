@@ -144,12 +144,17 @@ The handler expects the following input format:
 {
   "input": {
     "image": "<base64_encoded_image> or <image_url>",
-    "mode": "gundam",  // optional: tiny, small, base, large, gundam
-    "prompt": "<custom_prompt>",  // optional
-    "format": "text"  // optional: "text" or "markdown"
+    "mode": "gundam",
+    "prompt": "<custom_prompt>",
+    "format": "text"
   }
 }
 ```
+
+**Note:** All fields except `image` are optional:
+- `mode`: "tiny", "small", "base", "large", or "gundam" (default: "gundam")
+- `prompt`: Custom OCR prompt (optional)
+- `format`: "text" or "markdown" (default: "text")
 
 **Fields:**
 - `image` (required): Base64-encoded image string or HTTP/HTTPS URL
